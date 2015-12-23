@@ -60,21 +60,25 @@ function New-SqlBackup {
 
 function Restore-Backup {
 	[CmdletBinding()]
-	Param()
+	Param(
+        [parameter(Mandatory=$false)]
+        [alias("bp")]
+        $backupPath = $env:lastSqlBackup
+    )
 	Process {
 		[void][reflection.assembly]::LoadWithPartialName('Microsoft.SqlServer.Smo')
 		[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended')
 		$server = new-object Microsoft.SqlServer.Management.Smo.Server($env:SqlInstance)
 		$restore = new-object Microsoft.SqlServer.Management.Smo.Restore
-		$backupDeviceItem = new-object Microsoft.SqlServer.Management.Smo.BackupDeviceItem($env:lastSqlBackup, 'File')
+		$backupDeviceItem = new-object Microsoft.SqlServer.Management.Smo.BackupDeviceItem($backupPath, 'File')
 		$restore.Devices.Add($backupDeviceItem)
 		$restore.NoRecovery = $false;
 		$restore.ReplaceDatabase = $true;
 		$restore.Action = "Database"
 		
 		#$restore.PercentCompleteNotification = 10;
-		$fl = $restore.ReadFileList($server)
-		$restoredName = $fl.Rows[0]["LogicalName"]
+		$restoreProps = $restore.ReadFileList($server)
+		$restoredName = $restoreProps.Rows[0]["LogicalName"]
 		Write-Host "Restoring: $restoredName"
 		$restore.Database = $restoredName;
 		$restore.SqlRestore($server)

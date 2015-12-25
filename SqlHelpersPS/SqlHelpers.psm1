@@ -17,15 +17,22 @@ function New-SqlBackup {
 		[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.Smo')
         [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended')
         [void][System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.ConnectionInfo") 
-        $connection = new-object Microsoft.SqlServer.Management.Common.ServerConnection($env:SqlInstance)
-        $connection.ConnectTimeout = 2
-		$server=new-object Microsoft.SqlServer.Management.Smo.Server($connection)
 
-        # [ValidateSet[(...)]
-        $databaseNames = @()
-		foreach ($database in $server.Databases) {
-			$databaseNames += $database.name
-		}
+        try {        
+            $connection = new-object Microsoft.SqlServer.Management.Common.ServerConnection($env:SqlInstance)
+            $connection.ConnectTimeout = 2
+            $server=new-object Microsoft.SqlServer.Management.Smo.Server($connection)
+
+            # [ValidateSet[(...)]
+            $databaseNames = @()
+            foreach ($database in $server.Databases) {
+                $databaseNames += $database.name
+            }
+        } 
+        catch {
+            Write-Host "Error while listing available databases, probably DB is down or not properly configured SqlInstance variable." -ForegroundColor "Red"
+            break
+        }
 		        
         $dbNameValidateSetAttribute = New-Object -type System.Management.Automation.ValidateSetAttribute($databaseNames)
         $dbNameAttributeCollection.Add($dbNameValidateSetAttribute)
@@ -42,10 +49,17 @@ function New-SqlBackup {
 		[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.Smo')
         [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended')
         [void][System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.ConnectionInfo") 
-		$connection = new-object Microsoft.SqlServer.Management.Common.ServerConnection($env:SqlInstance)
-        $connection.ConnectTimeout = 2
-		$server=new-object Microsoft.SqlServer.Management.Smo.Server($connection)
-		$db = $server.Databases[$PSBoundParameters.dbName]
+        try { 
+            $connection = new-object Microsoft.SqlServer.Management.Common.ServerConnection($env:SqlInstance)
+            $connection.ConnectTimeout = 2
+            $server=new-object Microsoft.SqlServer.Management.Smo.Server($connection)
+            $db = $server.Databases[$PSBoundParameters.dbName]
+        } 
+        catch {
+            Write-Host "Error while trying to back up database, probably DB is down or not properly configured SqlInstance variable." -ForegroundColor "Red"
+            break;
+        }
+        
 		$dbname = $db.Name
 		$formattedDate = get-date -format yyyyMMddHHmmss
 		$backupTarget = $env:SqlBackupDir + $dbname + "_" + $formattedDate + ".bak"
@@ -73,9 +87,13 @@ function Restore-Backup {
         $backupPath = $env:lastSqlBackup
     )
 	Process {
-		[void][reflection.assembly]::LoadWithPartialName('Microsoft.SqlServer.Smo')
-		[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended')
-		$server = new-object Microsoft.SqlServer.Management.Smo.Server($env:SqlInstance)
+		[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.Smo')
+        [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended')
+        [void][System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.ConnectionInfo")
+        
+        $connection = new-object Microsoft.SqlServer.Management.Common.ServerConnection($env:SqlInstance)
+        $connection.ConnectTimeout = 2
+        $server=new-object Microsoft.SqlServer.Management.Smo.Server($connection)
 		$restore = new-object Microsoft.SqlServer.Management.Smo.Restore
 		$backupDeviceItem = new-object Microsoft.SqlServer.Management.Smo.BackupDeviceItem($backupPath, 'File')
 		$restore.Devices.Add($backupDeviceItem)
@@ -83,12 +101,17 @@ function Restore-Backup {
 		$restore.ReplaceDatabase = $true;
 		$restore.Action = "Database"
 		
-		#$restore.PercentCompleteNotification = 10;
-		$restoreProps = $restore.ReadFileList($server)
-		$restoredName = $restoreProps.Rows[0]["LogicalName"]
-		Write-Host "Restoring: $restoredName"
-		$restore.Database = $restoredName;
-		$restore.SqlRestore($server)
+        try {
+            $restoreProps = $restore.ReadFileList($server)
+            $restoredName = $restoreProps.Rows[0]["LogicalName"]
+            Write-Host "Restoring: $restoredName"
+            $restore.Database = $restoredName;
+            $restore.SqlRestore($server)
+        } 
+        catch {
+            Write-Host "Error while trying to restore database, probably DB is down or not properly configured SqlInstance variable." -ForegroundColor "Red"
+            break
+        }
 		Write-Host "Done."
 	}
 }

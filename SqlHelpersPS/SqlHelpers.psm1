@@ -79,7 +79,7 @@ function New-SqlBackup {
 	}
 }
 
-function Restore-Backup {
+function Restore-SqlBackup {
 	[CmdletBinding()]
 	Param(
         [parameter(Mandatory=$false)]

@@ -14,8 +14,12 @@ function New-SqlBackup {
         $dbNameParameterAttribute.HelpMessage = "Enter one or more database names, separated by commas"
         $dbNameAttributeCollection.Add($dbNameParameterAttribute)    
 
-		[void][reflection.assembly]::LoadWithPartialName('Microsoft.SqlServer.Smo')
-		$server=new-object Microsoft.SqlServer.Management.Smo.Server($env:SqlInstance)
+		[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.Smo')
+        [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended')
+        [void][System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.ConnectionInfo") 
+        $connection = new-object Microsoft.SqlServer.Management.Common.ServerConnection($env:SqlInstance)
+        $connection.ConnectTimeout = 2
+		$server=new-object Microsoft.SqlServer.Management.Smo.Server($connection)
 
         # [ValidateSet[(...)]
         $databaseNames = @()
@@ -35,14 +39,17 @@ function New-SqlBackup {
     }
 
 	Process {
-		[void][reflection.assembly]::LoadWithPartialName('Microsoft.SqlServer.Smo')
-		$server = new-object Microsoft.SqlServer.Management.Smo.Server($env:SqlInstance)
+		[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.Smo')
+        [void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended')
+        [void][System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.ConnectionInfo") 
+		$connection = new-object Microsoft.SqlServer.Management.Common.ServerConnection($env:SqlInstance)
+        $connection.ConnectTimeout = 2
+		$server=new-object Microsoft.SqlServer.Management.Smo.Server($connection)
 		$db = $server.Databases[$PSBoundParameters.dbName]
 		$dbname = $db.Name
 		$formattedDate = get-date -format yyyyMMddHHmmss
 		$backupTarget = $env:SqlBackupDir + $dbname + "_" + $formattedDate + ".bak"
 
-		[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended')
 		$dbBackup = new-object Microsoft.SqlServer.Management.Smo.Backup
 		$dbBackup.Action = 'Database'
 		$dbBackup.BackupSetDescription = "Full backup of " + $dbname
